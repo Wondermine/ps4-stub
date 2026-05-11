@@ -1,2 +1,8 @@
 bzImage.stub
 entry.o
+stub.bin
+stub.o
+pe_loader.o
+efi_test.o
+stub.elf
+efi_test.efi

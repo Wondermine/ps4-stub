@@ -22,13 +22,13 @@ typedef EFI_STATUS (EFIAPI *efi_stall_t)(
     UINTN Microseconds
 );
 
-typedef void *(EFIAPI *efi_copy_mem_t)(
+typedef void (EFIAPI *efi_copy_mem_t)(
     void *Destination,
     const void *Source,
     UINTN Length
 );
 
-typedef void *(EFIAPI *efi_set_mem_t)(
+typedef void (EFIAPI *efi_set_mem_t)(
     void *Buffer,
     UINTN Size,
     u8 Value
@@ -189,7 +189,11 @@ static int str_eq16(const CHAR16 *a, const CHAR16 *b)
 
 EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, struct EFI_SYSTEM_TABLE *SystemTable)
 {
-   ConOut->OutputString(ConOut, msg_start);
+    (void)ImageHandle;
+
+    struct EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL *ConOut;
+    struct EFI_BOOT_SERVICES *BS;
+    u32 crc = 0;
 
     static CHAR16 step1[] = { 'b','e','f','o','r','e',' ','S','e','t','M','e','m','\r','\n',0 };
     static CHAR16 step2[] = { 'a','f','t','e','r',' ','S','e','t','M','e','m','\r','\n',0 };
@@ -197,6 +201,23 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, struct EFI_SYSTEM_TABLE *Syst
     static CHAR16 step4[] = { 'a','f','t','e','r',' ','s','t','r','_','e','q','1','6','\r','\n',0 };
     static CHAR16 step5[] = { 'a','f','t','e','r',' ','C','R','C','3','2','\r','\n',0 };
     static CHAR16 step6[] = { 'a','f','t','e','r',' ','S','t','a','l','l','\r','\n',0 };
+
+    if (!SystemTable)
+        return 1;
+
+    ConOut = SystemTable->ConOut;
+    BS = SystemTable->BootServices;
+
+    if (!ConOut || !ConOut->OutputString)
+        return 2;
+
+    if (!BS)
+        return 3;
+
+    if (!BS->Stall || !BS->SetMem || !BS->CopyMem || !BS->CalculateCrc32)
+        return 4;
+
+    ConOut->OutputString(ConOut, msg_start);
 
     ConOut->OutputString(ConOut, step1);
     BS->SetMem(copied_msg, sizeof(copied_msg), 0);

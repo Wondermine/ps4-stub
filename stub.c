@@ -207,6 +207,33 @@ static void *raw_copy_mem(void *Destination, const void *Source, UINTN Length)
     return Destination;
 }
 
+static EFI_STATUS EFIAPI fake_calculate_crc32(
+    const void *Data,
+    UINTN DataSize,
+    u32 *Crc32
+)
+{
+    const u8 *p = (const u8 *)Data;
+    u32 crc = 0xFFFFFFFFU;
+
+    if (!Data || !Crc32)
+        return EFI_INVALID_PARAMETER;
+
+    for (UINTN i = 0; i < DataSize; i++) {
+        crc ^= p[i];
+
+        for (int bit = 0; bit < 8; bit++) {
+            if (crc & 1)
+                crc = (crc >> 1) ^ 0xEDB88320U;
+            else
+                crc >>= 1;
+        }
+    }
+
+    *Crc32 = ~crc;
+    return EFI_SUCCESS;
+}
+
 static void EFIAPI fake_copy_mem(
     void *Destination,
     const void *Source,
@@ -241,42 +268,6 @@ static void EFIAPI fake_set_mem(
 
     for (UINTN i = 0; i < Size; i++)
         p[i] = Value;
-}
-
-static void *EFIAPI fake_set_mem(
-    void *Buffer,
-    UINTN Size,
-    u8 Value
-)
-{
-    return raw_set_mem(Buffer, Size, Value);
-}
-
-static EFI_STATUS EFIAPI fake_calculate_crc32(
-    const void *Data,
-    UINTN DataSize,
-    u32 *Crc32
-)
-{
-    const u8 *p = (const u8 *)Data;
-    u32 crc = 0xFFFFFFFFU;
-
-    if (!Data || !Crc32)
-        return EFI_INVALID_PARAMETER;
-
-    for (UINTN i = 0; i < DataSize; i++) {
-        crc ^= p[i];
-
-        for (int bit = 0; bit < 8; bit++) {
-            if (crc & 1)
-                crc = (crc >> 1) ^ 0xEDB88320U;
-            else
-                crc >>= 1;
-        }
-    }
-
-    *Crc32 = ~crc;
-    return EFI_SUCCESS;
 }
 
 static CHAR16 fake_firmware_vendor[] = {
