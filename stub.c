@@ -185,28 +185,6 @@ static EFI_STATUS EFIAPI fake_stall(UINTN Microseconds)
 
 #define EFI_INVALID_PARAMETER 2
 
-static void *raw_copy_mem(void *Destination, const void *Source, UINTN Length)
-{
-    u8 *dst = (u8 *)Destination;
-    const u8 *src = (const u8 *)Source;
-
-    /*
-     * UEFI CopyMem is memmove-like: it must tolerate overlap.
-     */
-    if (!Destination || !Source)
-        return Destination;
-
-    if (dst < src) {
-        for (UINTN i = 0; i < Length; i++)
-            dst[i] = src[i];
-    } else if (dst > src) {
-        for (UINTN i = Length; i > 0; i--)
-            dst[i - 1] = src[i - 1];
-    }
-
-    return Destination;
-}
-
 static EFI_STATUS EFIAPI fake_calculate_crc32(
     const void *Data,
     UINTN DataSize,
@@ -255,19 +233,32 @@ static void EFIAPI fake_copy_mem(
     }
 }
 
-static void EFIAPI fake_set_mem(
-    void *Buffer,
-    UINTN Size,
-    u8 Value
-)
+static void EFIAPI fake_set_mem(void *Buffer, UINTN Size, u8 Value)
 {
-    u8 *p = (u8 *)Buffer;
+    uart_write_str("fake_set_mem entered\n");
 
-    if (!Buffer)
+    uart_write_str("Buffer: ");
+    uart_write_hex64((u64)Buffer);
+    uart_write_char('\n');
+
+    uart_write_str("Size: ");
+    uart_write_hex64((u64)Size);
+    uart_write_char('\n');
+
+    uart_write_str("Value: ");
+    uart_write_hex8(Value);
+    uart_write_char('\n');
+
+    if (!Buffer) {
+        uart_write_str("fake_set_mem NULL buffer\n");
         return;
+    }
 
+    u8 *p = (u8 *)Buffer;
     for (UINTN i = 0; i < Size; i++)
         p[i] = Value;
+
+    uart_write_str("fake_set_mem leaving\n");
 }
 
 static CHAR16 fake_firmware_vendor[] = {
@@ -424,6 +415,22 @@ static void find_and_run_embedded_efi(void)
             uart_write_char('\n');
 
             uart_write_str("Calling PE loader...\n");
+
+            uart_write_str("stub fake_set_mem: ");
+            uart_write_hex64((u64)fake_set_mem);
+            uart_write_char('\n');
+
+            uart_write_str("stub BS->SetMem: ");
+            uart_write_hex64((u64)fake_boot_services.SetMem);
+            uart_write_char('\n');
+
+            uart_write_str("stub fake_copy_mem: ");
+            uart_write_hex64((u64)fake_copy_mem);
+            uart_write_char('\n');
+
+            uart_write_str("stub BS->CopyMem: ");
+            uart_write_hex64((u64)fake_boot_services.CopyMem);
+            uart_write_char('\n');
 
             int rc = pe_load_and_start(efi, size);
 
